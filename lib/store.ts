@@ -8,7 +8,8 @@ const blobOptions=()=>({
  access:"private" as const,
  useCache:false,
  token:process.env.BLOB_READ_WRITE_TOKEN,
- oidcToken:process.env.VERCEL_OIDC_TOKEN
+ oidcToken:process.env.VERCEL_OIDC_TOKEN,
+ storeId:process.env.BLOB_STORE_ID || process.env.VERCEL_BLOB_STORE_ID
 });
 
 async function readPosts():Promise<StoredPost[]>{
@@ -24,6 +25,7 @@ async function writePosts(posts:StoredPost[]){
   allowOverwrite:true,
   token:process.env.BLOB_READ_WRITE_TOKEN,
   oidcToken:process.env.VERCEL_OIDC_TOKEN,
+  storeId:process.env.BLOB_STORE_ID || process.env.VERCEL_BLOB_STORE_ID,
   contentType:"application/json"
  });
 }
