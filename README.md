@@ -6,4 +6,4 @@ Pipeline: authorized news feeds → AI Tamil editing → original visual → hum
 
 Publishing starts in approval mode.
 
-Deployment trigger: news ingestion fix.
+Deployment trigger: ingestion diagnostics.
