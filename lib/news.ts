@@ -55,22 +55,67 @@ function getConfiguredFeeds():FeedConfig[]{
   }
 }
 
+function normalizeFeed(feed:FeedConfig):FeedConfig{
+  const url=feed.url||"";
+  // Reuters retired the old feeds.reuters.com public RSS service. Use a Google News
+  // RSS search constrained to Reuters until an authenticated Reuters feed is configured.
+  if(url.includes("feeds.reuters.com/reuters/worldNews")||url.includes("feeds.reuters.com/Reuters/worldNews")){
+    return {
+      ...feed,
+      url:"https://news.google.com/rss/search?q=when:24h+site:reuters.com/world&ceid=US:en&hl=en-US&gl=US"
+    };
+  }
+  if(url.startsWith("http://rss.cnn.com/")) return {...feed,url:url.replace("http://","https://")};
+  return feed;
+}
+
 export async function fetchNewsFeeds():Promise<NewsItem[]>{
   const results:NewsItem[]=[];
-  for(const feed of getConfiguredFeeds()){
+  for(const originalFeed of getConfiguredFeeds()){
+    const feed=normalizeFeed(originalFeed);
     if(!feed?.url) continue;
     try{
-      const response=await fetch(feed.url,{headers:{"User-Agent":"HijazTamilNews/1.0"},cache:"no-store"});
+      const response=await fetch(feed.url,{
+        headers:{"User-Agent":"Mozilla/5.0 (compatible; HijazTamilNews/1.0)","Accept":"application/rss+xml, application/xml, text/xml;q=0.9, */*;q=0.8"},
+        cache:"no-store"
+      });
       if(!response.ok) throw new Error("HTTP "+response.status);
-      results.push(...readFeedXml(await response.text(),feed));
+      const items=readFeedXml(await response.text(),feed);
+      console.info("Feed loaded",feed.name,items.length);
+      results.push(...items);
     }catch(error){
       console.error("Feed error",feed?.name,error);
     }
   }
+  console.info("Total feed items",results.length);
   return results.sort((a,b)=>{
     const bt=Date.parse(b.publishedAt),at=Date.parse(a.publishedAt);
     return (Number.isFinite(bt)?bt:0)-(Number.isFinite(at)?at:0);
   });
+}
+
+function extractResponseText(json:any):string{
+  if(typeof json?.output_text==="string"&&json.output_text.trim()) return json.output_text.trim();
+  const parts:Array<string>=[];
+  for(const item of Array.isArray(json?.output)?json.output:[]){
+    for(const part of Array.isArray(item?.content)?item.content:[]){
+      if(typeof part?.text==="string") parts.push(part.text);
+    }
+  }
+  return parts.join("\n").trim();
+}
+
+function parseJson(raw:string){
+  const cleaned=raw
+    .replace(/^\s*\x60\x60\x60(?:json)?\s*/i,"")
+    .replace(/\s*\x60\x60\x60\s*$/,"")
+    .trim();
+  try{return JSON.parse(cleaned);}
+  catch{
+    const start=cleaned.indexOf("{"),end=cleaned.lastIndexOf("}");
+    if(start>=0&&end>start) return JSON.parse(cleaned.slice(start,end+1));
+    throw new Error("OpenAI returned invalid JSON");
+  }
 }
 
 export async function rewriteTamil(item:NewsItem){
@@ -83,7 +128,7 @@ Understand the story before writing. Do not translate word-for-word. Use natural
 Do not invent facts, quotes, numbers, dates, locations or motives. Preserve names and proper nouns accurately.
 Clearly attribute allegations or claims. Do not add political persuasion, praise, criticism or predictions.
 Do not copy the source article wording. Keep the output concise and mobile-friendly.
-Return ONLY JSON with: headline_tamil, caption_tamil, category, key_facts (array of 3 short Tamil facts), source.
+Return ONLY valid JSON with: headline_tamil, caption_tamil, category, key_facts (array of 3 short Tamil facts), source.
 
 SOURCE: ${item.source}
 HEADLINE: ${item.title}
@@ -93,11 +138,15 @@ URL: ${item.link}`;
   const response=await fetch("https://api.openai.com/v1/responses",{
     method:"POST",
     headers:{"Content-Type":"application/json","Authorization":"Bearer "+apiKey},
-    body:JSON.stringify({model,input:prompt})
+    body:JSON.stringify({
+      model,
+      input:prompt,
+      text:{format:{type:"json_object"}}
+    })
   });
   if(!response.ok) throw new Error("OpenAI error "+response.status+": "+await response.text());
-  const json=await response.json() as {output_text?:string};
-  const raw=json.output_text||"";
+  const json=await response.json();
+  const raw=extractResponseText(json);
   if(!raw) throw new Error("OpenAI returned no output");
-  return JSON.parse(raw.replace(/^\s*\x60\x60\x60json\s*/,"").replace(/\s*\x60\x60\x60\s*$/,""));
+  return parseJson(raw);
 }
