@@ -4,17 +4,28 @@ export type StoredPost={id:string;source:string;title:string;link:string;publish
 
 const PATH="hijaz/posts.json";
 
+const blobOptions=()=>({
+ access:"private" as const,
+ useCache:false,
+ token:process.env.BLOB_READ_WRITE_TOKEN,
+ oidcToken:process.env.VERCEL_OIDC_TOKEN
+});
+
 async function readPosts():Promise<StoredPost[]>{
- try{
-  const result=await get(PATH,{access:"private",useCache:false});
-  if(!result) return [];
-  const text=await new Response(result.stream).text();
-  return JSON.parse(text);
- }catch{return [];}
+ const result=await get(PATH,blobOptions());
+ if(!result) return [];
+ const text=await new Response(result.stream).text();
+ return JSON.parse(text);
 }
 
 async function writePosts(posts:StoredPost[]){
- await put(PATH,JSON.stringify(posts),{access:"private",allowOverwrite:true});
+ await put(PATH,JSON.stringify(posts),{
+  access:"private",
+  allowOverwrite:true,
+  token:process.env.BLOB_READ_WRITE_TOKEN,
+  oidcToken:process.env.VERCEL_OIDC_TOKEN,
+  contentType:"application/json"
+ });
 }
 
 export async function listPosts(){return readPosts();}
