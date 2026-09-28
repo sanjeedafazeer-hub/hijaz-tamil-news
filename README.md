@@ -7,3 +7,5 @@ Pipeline: authorized news feeds → AI Tamil editing → original visual → hum
 Publishing starts in approval mode.
 
 Vercel deployment trigger.
+
+Build fix trigger.
