@@ -4,8 +4,13 @@ import {upsertPost} from "@/lib/store";
 export const runtime="nodejs"; export const maxDuration=60;
 
 export async function POST(req:Request){
- const secret=process.env.INGEST_SECRET;
- if(secret && req.headers.get("authorization")!=="Bearer "+secret)return NextResponse.json({error:"Unauthorized"},{status:401});
+ const ingestSecret=process.env.INGEST_SECRET;
+ const adminSecret=process.env.ADMIN_SECRET;
+ const auth=req.headers.get("authorization");
+ const authorized=!ingestSecret && !adminSecret
+   ? true
+   : auth==="Bearer "+ingestSecret || auth==="Bearer "+adminSecret;
+ if(!authorized)return NextResponse.json({error:"Unauthorized"},{status:401});
  try{
   const items=(await fetchNewsFeeds()).slice(0,Number(process.env.MAX_ITEMS_PER_RUN||3));
   const posts=[];
