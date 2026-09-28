@@ -3,24 +3,24 @@ export type NewsItem={source:string;title:string;link:string;publishedAt:string;
 type FeedConfig={name?:string;url?:string};
 
 function decodeXml(value:string){
-  return value.replace(/<!\\[CDATA\\[([\\s\\S]*?)\\]\\]>/g,"$1")
+  return value.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g,"$1")
     .replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">")
     .replace(/&quot;/g,'"').replace(/&#39;/g,"'");
 }
 
 function stripHtml(value:string){
-  return decodeXml(value).replace(/<[^>]+>/g," ").replace(/\\s+/g," ").trim();
+  return decodeXml(value).replace(/<[^>]+>/g," ").replace(/\s+/g," ").trim();
 }
 
 function tagValue(xml:string,tag:string){
-  const pattern="<"+tag+"(?:\\\\s[^>]*)?>([\\\\s\\\\S]*?)</"+tag+">";
+  const pattern="<"+tag+"(?:\\s[^>]*)?>([\\s\\S]*?)</"+tag+">";
   const match=xml.match(new RegExp(pattern,"i"));
   return match?.[1] ? decodeXml(match[1]).trim() : "";
 }
 
 function itemBlocks(xml:string){
-  const rssPattern="<item(?:\\\\s[^>]*)?>([\\\\s\\\\S]*?)</item>";
-  const atomPattern="<entry(?:\\\\s[^>]*)?>([\\\\s\\\\S]*?)</entry>";
+  const rssPattern="<item(?:\\s[^>]*)?>([\\s\\S]*?)</item>";
+  const atomPattern="<entry(?:\\s[^>]*)?>([\\s\\S]*?)</entry>";
   const rss=[...xml.matchAll(new RegExp(rssPattern,"gi"))].map(m=>m[1]);
   if(rss.length) return rss;
   return [...xml.matchAll(new RegExp(atomPattern,"gi"))].map(m=>m[1]);
