@@ -18,9 +18,9 @@ function tagValue(xml:string,tag:string){
 }
 
 function itemBlocks(xml:string){
-  const rss=[...xml.matchAll(/<item(?:\\s[^>]*)?>([\\s\\S]*?)<\\/item>/gi)].map(m=>m[1]);
+  const rss=[...xml.matchAll(/<item(?:\s[^>]*)?>([\s\S]*?)<\/item>/gi)].map(m=>m[1]);
   if(rss.length) return rss;
-  return [...xml.matchAll(/<entry(?:\\s[^>]*)?>([\\s\\S]*?)<\\/entry>/gi)].map(m=>m[1]);
+  return [...xml.matchAll(/<entry(?:\s[^>]*)?>([\s\S]*?)<\/entry>/gi)].map(m=>m[1]);
 }
 
 function itemLink(block:string){
@@ -97,5 +97,5 @@ URL: ${item.link}`;
   const json=await response.json() as {output_text?:string};
   const raw=json.output_text||"";
   if(!raw) throw new Error("OpenAI returned no output");
-  return JSON.parse(raw.replace(/^\s*```json\s*/,"").replace(/\s*```\s*$/,""));
+  return JSON.parse(raw.replace(/^\s*\`\`\`json\s*/,"").replace(/\s*\`\`\`\s*$/,""));
 }
