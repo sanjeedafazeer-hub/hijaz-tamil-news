@@ -13,14 +13,26 @@ export async function POST(req:Request){
  if(!authorized)return NextResponse.json({error:"Unauthorized"},{status:401});
  try{
   const items=(await fetchNewsFeeds()).slice(0,Number(process.env.MAX_ITEMS_PER_RUN||3));
+  console.info("Ingest selected items",items.length);
   const posts=[];
   for(const item of items){
    try{
+    console.info("AI rewrite starting",item.source,item.title);
+    const editorial=await rewriteTamil(item);
+    console.info("AI rewrite completed",item.source);
     const existingId=Buffer.from(item.guid||item.link).toString("base64url").slice(0,80);
-    const post=await upsertPost({...item,id:existingId,editorial:await rewriteTamil(item),status:"pending_approval",createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()});
+    const post=await upsertPost({...item,id:existingId,editorial,status:"pending_approval",createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()});
+    console.info("Post stored",post.id);
     posts.push(post);
-   }catch(error){posts.push({...item,status:"ai_error",error:error instanceof Error?error.message:"Unknown AI error"});}
+   }catch(error){
+    console.error("Ingest item error",item.source,item.title,error);
+    posts.push({...item,status:"ai_error",error:error instanceof Error?error.message:"Unknown AI error"});
+   }
   }
+  console.info("Ingest completed",posts.length);
   return NextResponse.json({ok:true,count:posts.length,posts});
- }catch(error){return NextResponse.json({ok:false,error:error instanceof Error?error.message:"Unknown error"},{status:500});}
+ }catch(error){
+  console.error("Ingest fatal error",error);
+  return NextResponse.json({ok:false,error:error instanceof Error?error.message:"Unknown error"},{status:500});
+ }
 }
