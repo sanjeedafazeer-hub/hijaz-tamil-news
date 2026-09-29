@@ -18,7 +18,7 @@ async function getTamilFontBase64(){
    const controller=new AbortController();
    const timer=setTimeout(()=>controller.abort(),15000);
    try{
-     const response=await fetch("https://raw.githubusercontent.com/notofonts/tamil/main/fonts/NotoSansTamil/googlefonts/ttf/NotoSansTamil-Regular.ttf",{signal:controller.signal});
+     const response=await fetch("https://raw.githubusercontent.com/notofonts/noto-fonts/main/hinted/ttf/NotoSansTamil/NotoSansTamil-Regular.ttf",{signal:controller.signal});
      if(!response.ok)throw new Error("Tamil font download failed: "+response.status);
      return Buffer.from(await response.arrayBuffer()).toString("base64");
    }finally{
