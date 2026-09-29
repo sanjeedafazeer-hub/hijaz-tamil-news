@@ -1,6 +1,9 @@
 import {NextResponse} from "next/server";
 import {put} from "@vercel/blob";
 import sharp from "sharp";
+import fs from "node:fs";
+import path from "node:path";
+import {Resvg} from "@resvg/resvg-js";
 import {updatePost} from "@/lib/store";
 
 export const runtime="nodejs";
@@ -8,24 +11,6 @@ export const maxDuration=60;
 
 function escapeXml(value:string){
  return value.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&apos;");
-}
-
-let tamilFontPromise: Promise<string> | null = null;
-
-async function getTamilFontBase64(){
- if(tamilFontPromise)return tamilFontPromise;
- tamilFontPromise=(async()=>{
-   const controller=new AbortController();
-   const timer=setTimeout(()=>controller.abort(),15000);
-   try{
-     const response=await fetch("https://raw.githubusercontent.com/notofonts/noto-fonts/main/hinted/ttf/NotoSansTamil/NotoSansTamil-Regular.ttf",{signal:controller.signal});
-     if(!response.ok)throw new Error("Tamil font download failed: "+response.status);
-     return Buffer.from(await response.arrayBuffer()).toString("base64");
-   }finally{
-     clearTimeout(timer);
-   }
- })();
- return tamilFontPromise;
 }
 
 function wrapText(text:string,maxChars=28){
@@ -52,7 +37,10 @@ export async function POST(req:Request){
  const category=String(body.category||"World News");
  if(!id||!headline)return NextResponse.json({error:"Post id and headline are required."},{status:400});
 
- const [lines,tamilFontBase64]=await Promise.all([wrapText(headline,30),getTamilFontBase64()]);
+ const lines=wrapText(headline,30);
+ const fontBase64=fs.readFileSync(path.join(process.cwd(),"assets","NotoSansTamil-Regular.ttf.base64"),"utf8").trim();
+ const fontPath="/tmp/NotoSansTamil-Regular.ttf";
+ if(!fs.existsSync(fontPath)) fs.writeFileSync(fontPath,Buffer.from(fontBase64,"base64"));
  const lineHeight=76;
  const headlineStart=540;
  const headlineSvg=lines.map((line,i)=>`<text x="90" y="${headlineStart+i*lineHeight}" class="headline">${escapeXml(line)}</text>`).join("");
@@ -82,7 +70,8 @@ export async function POST(req:Request){
  <text x="90" y="1245" fill="#8F96A3" font-family="Noto Sans Tamil, Noto Sans, sans-serif" font-size="21">International news • Natural Tamil • Editorial review</text>
  </svg>`;
 
- const jpeg=await sharp(Buffer.from(svg)).jpeg({quality:92}).toBuffer();
+ const renderedPng=new Resvg(svg,{font:{fontFiles:[fontPath],loadSystemFonts:true,sansSerifFamily:"Noto Sans Tamil"}}).render().asPng();
+ const jpeg=await sharp(renderedPng).jpeg({quality:92}).toBuffer();
  const blob=await put("hijaz/graphics/"+Date.now()+".jpg",jpeg,{access:"public",contentType:"image/jpeg",addRandomSuffix:true});
  await updatePost(id,"approved",{imageUrl:blob.url});
  return NextResponse.json({ok:true,url:blob.url});
