@@ -114,15 +114,11 @@ function parseJson(raw:string){
   catch{
     const start=cleaned.indexOf("{"),end=cleaned.lastIndexOf("}");
     if(start>=0&&end>start) return JSON.parse(cleaned.slice(start,end+1));
-    throw new Error("OpenAI returned invalid JSON");
+    throw new Error("AI returned invalid JSON");
   }
 }
 
-export async function rewriteTamil(item:NewsItem){
-  const apiKey=process.env.OPENAI_API_KEY;
-  if(!apiKey) throw new Error("OPENAI_API_KEY is not configured");
-  const model=process.env.OPENAI_MODEL||"gpt-5.6-luna";
-  const prompt=`You are the Tamil editor for an international news Instagram page.
+const tamilEditorialPrompt=(item:NewsItem)=>`You are the Tamil editor for an international news Instagram page.
 Create an original Tamil social-media news post from the supplied source metadata.
 Understand the story before writing. Do not translate word-for-word. Use natural, modern Tamil.
 Do not invent facts, quotes, numbers, dates, locations or motives. Preserve names and proper nouns accurately.
@@ -135,12 +131,38 @@ HEADLINE: ${item.title}
 SUMMARY: ${item.summary}
 URL: ${item.link}`;
 
+async function rewriteWithBedrock(item:NewsItem){
+  const token=process.env.AWS_BEARER_TOKEN_BEDROCK;
+  if(!token) throw new Error("AWS_BEARER_TOKEN_BEDROCK is not configured");
+  const region=process.env.AWS_BEDROCK_REGION||"us-east-1";
+  const model=process.env.AWS_BEDROCK_MODEL||"amazon.nova-micro-v1:0";
+  const response=await fetch(`https://bedrock-runtime.${region}.amazonaws.com/model/${encodeURIComponent(model)}/converse`,{
+    method:"POST",
+    headers:{"Content-Type":"application/json","Authorization":"Bearer "+token},
+    body:JSON.stringify({
+      messages:[{role:"user",content:[{text:tamilEditorialPrompt(item)}]}],
+      inferenceConfig:{maxTokens:900,temperature:0.2}
+    })
+  });
+  if(!response.ok) throw new Error("AWS Bedrock error "+response.status+": "+await response.text());
+  const json=await response.json();
+  const raw=Array.isArray(json?.output?.message?.content)
+    ? json.output.message.content.map((part:any)=>typeof part?.text==="string"?part.text:"").join("\n").trim()
+    : "";
+  if(!raw) throw new Error("AWS Bedrock returned no output");
+  return parseJson(raw);
+}
+
+async function rewriteWithOpenAI(item:NewsItem){
+  const apiKey=process.env.OPENAI_API_KEY;
+  if(!apiKey) throw new Error("OPENAI_API_KEY is not configured");
+  const model=process.env.OPENAI_MODEL||"gpt-5.6-luna";
   const response=await fetch("https://api.openai.com/v1/responses",{
     method:"POST",
     headers:{"Content-Type":"application/json","Authorization":"Bearer "+apiKey},
     body:JSON.stringify({
       model,
-      input:prompt,
+      input:tamilEditorialPrompt(item),
       text:{format:{type:"json_object"}}
     })
   });
@@ -149,4 +171,13 @@ URL: ${item.link}`;
   const raw=extractResponseText(json);
   if(!raw) throw new Error("OpenAI returned no output");
   return parseJson(raw);
+}
+
+export async function rewriteTamil(item:NewsItem){
+  if(process.env.AWS_BEARER_TOKEN_BEDROCK){
+    console.info("Using Amazon Bedrock for Tamil rewrite");
+    return rewriteWithBedrock(item);
+  }
+  console.info("Using OpenAI for Tamil rewrite");
+  return rewriteWithOpenAI(item);
 }
