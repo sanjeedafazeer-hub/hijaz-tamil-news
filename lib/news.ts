@@ -147,7 +147,7 @@ function awsSigV4Headers(region:string,model:string,body:string,accessKeyId:stri
   const now=new Date();
   const amzDate=now.toISOString().replace(/[-:]/g,"").replace(/\.\d{3}Z$/,"Z");
   const dateStamp=amzDate.slice(0,8);
-  const canonicalUri="/model/"+encodeURIComponent(model)+"/converse";
+  const canonicalUri="/model/"+encodeURIComponent(encodeURIComponent(model))+"/converse";
   const payloadHash=sha256Hex(body);
   const canonicalHeaders="content-type:application/json\nhost:"+host+"\nx-amz-date:"+amzDate+"\n";
   const signedHeaders="content-type;host;x-amz-date";
