@@ -2,6 +2,7 @@ import {NextResponse} from "next/server";
 import {put} from "@vercel/blob";
 import sharp from "sharp";
 import {updatePost} from "@/lib/store";
+import {tamilFontBase64} from "@/lib/tamil-font";
 
 export const runtime="nodejs";
 export const maxDuration=60;
@@ -42,6 +43,7 @@ export async function POST(req:Request){
  const categoryText=escapeXml(category||"World News");
 
  const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1350" viewBox="0 0 1080 1350">
+ <style>@font-face{font-family:"NishadhTamil";src:url(data:font/ttf;base64,${tamilFontBase64}) format("truetype");font-weight:100 900;font-style:normal}.tamil{font-family:"NishadhTamil",sans-serif}</style>
  <defs>
   <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
    <stop offset="0" stop-color="#111317"/><stop offset="1" stop-color="#262A31"/>
@@ -54,7 +56,7 @@ export async function POST(req:Request){
  <circle cx="930" cy="150" r="260" fill="#C7A15A" opacity=".07"/>
  <circle cx="80" cy="1230" r="330" fill="#FFFFFF" opacity=".025"/>
  <rect x="70" y="74" width="940" height="5" rx="2.5" fill="url(#gold)"/>
- <text x="90" y="150" fill="#F1D28A" font-family="Noto Sans Tamil, Noto Sans, sans-serif" font-size="34" font-weight="700">NISHADH NEWS</text>
+ <text x="90" y="150" fill="#F1D28A" font-family="NishadhTamil, sans-serif" font-size="34" font-weight="700">NISHADH NEWS</text>
  <text x="90" y="205" fill="#AEB4BF" font-family="Noto Sans Tamil, Noto Sans, sans-serif" font-size="24">${categoryText}</text>
  <line x1="90" y1="250" x2="990" y2="250" stroke="#FFFFFF" stroke-opacity=".12"/>
  ${headlineSvg}
