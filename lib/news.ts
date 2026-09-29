@@ -131,18 +131,57 @@ HEADLINE: ${item.title}
 SUMMARY: ${item.summary}
 URL: ${item.link}`;
 
+import { createHash, createHmac } from "node:crypto";
+
+function sha256Hex(value:string){
+  return createHash("sha256").update(value).digest("hex");
+}
+
+function hmac(key:string|Buffer,value:string){
+  return createHmac("sha256",key).update(value).digest();
+}
+
+function awsSigV4Headers(region:string,model:string,body:string,accessKeyId:string,secretAccessKey:string){
+  const service="bedrock";
+  const host="bedrock-runtime."+region+".amazonaws.com";
+  const now=new Date();
+  const amzDate=now.toISOString().replace(/[-:]/g,"").replace(/\.\d{3}Z$/,"Z");
+  const dateStamp=amzDate.slice(0,8);
+  const canonicalUri="/model/"+encodeURIComponent(model)+"/converse";
+  const payloadHash=sha256Hex(body);
+  const canonicalHeaders="content-type:application/json\nhost:"+host+"\nx-amz-date:"+amzDate+"\n";
+  const signedHeaders="content-type;host;x-amz-date";
+  const canonicalRequest=["POST",canonicalUri,"",canonicalHeaders,signedHeaders,payloadHash].join("\n");
+  const credentialScope=dateStamp+"/"+region+"/"+service+"/aws4_request";
+  const stringToSign=["AWS4-HMAC-SHA256",amzDate,credentialScope,sha256Hex(canonicalRequest)].join("\n");
+  const kDate=hmac("AWS4"+secretAccessKey,dateStamp);
+  const kRegion=hmac(kDate,region);
+  const kService=hmac(kRegion,service);
+  const kSigning=hmac(kService,"aws4_request");
+  const signature=createHmac("sha256",kSigning).update(stringToSign).digest("hex");
+  return {
+    host,
+    "Content-Type":"application/json",
+    "X-Amz-Date":amzDate,
+    Authorization:"AWS4-HMAC-SHA256 Credential="+accessKeyId+"/"+credentialScope+", SignedHeaders="+signedHeaders+", Signature="+signature
+  };
+}
+
 async function rewriteWithBedrock(item:NewsItem){
-  const token=process.env.AWS_BEARER_TOKEN_BEDROCK;
-  if(!token) throw new Error("AWS_BEARER_TOKEN_BEDROCK is not configured");
+  const accessKeyId=process.env.AWS_ACCESS_KEY_ID;
+  const secretAccessKey=process.env.AWS_SECRET_ACCESS_KEY;
+  if(!accessKeyId||!secretAccessKey) throw new Error("AWS access key credentials are not configured");
   const region=process.env.AWS_BEDROCK_REGION||"us-east-1";
   const model=process.env.AWS_BEDROCK_MODEL||"amazon.nova-micro-v1:0";
-  const response=await fetch(`https://bedrock-runtime.${region}.amazonaws.com/model/${encodeURIComponent(model)}/converse`,{
+  const body=JSON.stringify({
+    messages:[{role:"user",content:[{text:tamilEditorialPrompt(item)}]}],
+    inferenceConfig:{maxTokens:900,temperature:0.2}
+  });
+  const headers=awsSigV4Headers(region,model,body,accessKeyId,secretAccessKey);
+  const response=await fetch("https://"+headers.host+"/model/"+encodeURIComponent(model)+"/converse",{
     method:"POST",
-    headers:{"Content-Type":"application/json","Authorization":"Bearer "+token},
-    body:JSON.stringify({
-      messages:[{role:"user",content:[{text:tamilEditorialPrompt(item)}]}],
-      inferenceConfig:{maxTokens:900,temperature:0.2}
-    })
+    headers,
+    body
   });
   if(!response.ok) throw new Error("AWS Bedrock error "+response.status+": "+await response.text());
   const json=await response.json();
@@ -152,7 +191,6 @@ async function rewriteWithBedrock(item:NewsItem){
   if(!raw) throw new Error("AWS Bedrock returned no output");
   return parseJson(raw);
 }
-
 async function rewriteWithOpenAI(item:NewsItem){
   const apiKey=process.env.OPENAI_API_KEY;
   if(!apiKey) throw new Error("OPENAI_API_KEY is not configured");
@@ -174,8 +212,8 @@ async function rewriteWithOpenAI(item:NewsItem){
 }
 
 export async function rewriteTamil(item:NewsItem){
-  if(process.env.AWS_BEARER_TOKEN_BEDROCK){
-    console.info("Using Amazon Bedrock for Tamil rewrite");
+  if(process.env.AWS_ACCESS_KEY_ID&&process.env.AWS_SECRET_ACCESS_KEY){
+    console.info("Using Amazon Bedrock with AWS SigV4 authentication for Tamil rewrite");
     return rewriteWithBedrock(item);
   }
   console.info("Using OpenAI for Tamil rewrite");
