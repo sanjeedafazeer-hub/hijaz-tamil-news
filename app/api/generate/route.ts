@@ -70,7 +70,7 @@ export async function POST(req:Request){
  <text x="90" y="1245" fill="#8F96A3" font-family="Noto Sans Tamil, Noto Sans, sans-serif" font-size="21">International news • Natural Tamil • Editorial review</text>
  </svg>`;
 
- const renderedPng=new Resvg(svg,{font:{fontFiles:[fontPath],loadSystemFonts:true,sansSerifFamily:"Noto Sans Tamil"}}).render().asPng();
+ const renderedPng=new Resvg(svg,{font:{fontFiles:[fontPath],loadSystemFonts:false,defaultFontFamily:"Noto Sans Tamil"}}).render().asPng();
  const jpeg=await sharp(renderedPng).jpeg({quality:92}).toBuffer();
  const blob=await put("hijaz/graphics/"+Date.now()+".jpg",jpeg,{access:"public",contentType:"image/jpeg",addRandomSuffix:true});
  await updatePost(id,"approved",{imageUrl:blob.url});
