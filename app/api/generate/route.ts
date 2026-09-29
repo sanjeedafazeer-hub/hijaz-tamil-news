@@ -2,13 +2,30 @@ import {NextResponse} from "next/server";
 import {put} from "@vercel/blob";
 import sharp from "sharp";
 import {updatePost} from "@/lib/store";
-import {tamilFontBase64} from "@/lib/tamil-font";
 
 export const runtime="nodejs";
 export const maxDuration=60;
 
 function escapeXml(value:string){
  return value.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&apos;");
+}
+
+let tamilFontPromise: Promise<string> | null = null;
+
+async function getTamilFontBase64(){
+ if(tamilFontPromise)return tamilFontPromise;
+ tamilFontPromise=(async()=>{
+   const controller=new AbortController();
+   const timer=setTimeout(()=>controller.abort(),15000);
+   try{
+     const response=await fetch("https://raw.githubusercontent.com/notofonts/tamil/main/fonts/NotoSansTamil/googlefonts/ttf/NotoSansTamil-Regular.ttf",{signal:controller.signal});
+     if(!response.ok)throw new Error("Tamil font download failed: "+response.status);
+     return Buffer.from(await response.arrayBuffer()).toString("base64");
+   }finally{
+     clearTimeout(timer);
+   }
+ })();
+ return tamilFontPromise;
 }
 
 function wrapText(text:string,maxChars=28){
@@ -35,7 +52,7 @@ export async function POST(req:Request){
  const category=String(body.category||"World News");
  if(!id||!headline)return NextResponse.json({error:"Post id and headline are required."},{status:400});
 
- const lines=wrapText(headline,30);
+ const [lines,tamilFontBase64]=await Promise.all([wrapText(headline,30),getTamilFontBase64()]);
  const lineHeight=76;
  const headlineStart=540;
  const headlineSvg=lines.map((line,i)=>`<text x="90" y="${headlineStart+i*lineHeight}" class="headline">${escapeXml(line)}</text>`).join("");
