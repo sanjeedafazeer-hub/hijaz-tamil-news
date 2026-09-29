@@ -7,3 +7,5 @@ Pipeline: authorized news feeds → AI Tamil editing → original visual → hum
 Publishing starts in approval mode.
 
 Deployment trigger: ingestion diagnostics.
+
+Production deployment trigger: AI editorial visuals.
