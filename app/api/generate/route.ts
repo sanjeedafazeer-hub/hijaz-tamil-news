@@ -3,11 +3,10 @@ import {put} from "@vercel/blob";
 import sharp from "sharp";
 import fs from "node:fs";
 import path from "node:path";
-import {Resvg} from "@resvg/resvg-js";
 import {updatePost} from "@/lib/store";
 
 export const runtime="nodejs";
-export const maxDuration=60;
+export const maxDuration=120;
 
 function escapeXml(value:string){
  return value.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&apos;");
