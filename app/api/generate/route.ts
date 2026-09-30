@@ -41,7 +41,6 @@ export async function POST(req:Request){
  const fontPath="/tmp/NotoSansTamil-Regular.ttf";
  if(!fs.existsSync(fontPath)) fs.writeFileSync(fontPath,Buffer.from(fontBase64,"base64"));
 
- // Generate a professional editorial visual with OpenAI, then render Tamil text locally.
  const openaiKey=process.env.OPENAI_API_KEY;
  if(!openaiKey) return NextResponse.json({error:"OPENAI_API_KEY is not configured."},{status:500});
 
@@ -59,7 +58,7 @@ This is an AI-generated editorial illustration, not a claim that the image is a 
 
  const imageResponse=await fetch("https://api.openai.com/v1/images/generations",{
   method:"POST",
-  headers:{"Content-Type":"application/json","Authorization:"Bearer "+openaiKey},
+  headers:{"Content-Type":"application/json","Authorization":"Bearer "+openaiKey},
   body:JSON.stringify({
    model:process.env.OPENAI_IMAGE_MODEL||"gpt-image-2",
    prompt:visualPrompt,
