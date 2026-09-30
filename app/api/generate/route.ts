@@ -1,6 +1,7 @@
 import {NextResponse} from "next/server";
 import {put} from "@vercel/blob";
 import sharp from "sharp";
+import {Resvg} from "@resvg/resvg-js";
 import fs from "node:fs";
 import path from "node:path";
 import {updatePost} from "@/lib/store";
@@ -110,9 +111,11 @@ This is an AI-generated editorial illustration, not a claim that the image is a 
  <text x="90" y="1190" fill="#FFFFFF" opacity=".82" font-family="Noto Sans Tamil, sans-serif" font-size="21">AI editorial visual • Natural Tamil</text>
  </svg>`;
 
+ const overlayPng=Buffer.from(new Resvg(overlaySvg,{fitTo:{mode:"original"},font:{fontFiles:[fontPath],loadSystemFonts:false,defaultFontFamily:"Noto Sans Tamil"}}).render().asPng());
+
  const rendered=await sharp(aiImage)
   .resize(1080,1350,{fit:"cover",position:"center"})
-  .composite([{input:Buffer.from(overlaySvg),top:0,left:0}])
+  .composite([{input:overlayPng,top:0,left:0}])
   .jpeg({quality:92})
   .toBuffer();
 
