@@ -9,3 +9,5 @@ Publishing starts in approval mode.
 Deployment trigger: ingestion diagnostics.
 
 Production deployment trigger: AI editorial visuals.
+
+Deployment sync check: 2026-09-30.
